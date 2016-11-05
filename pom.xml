@@ -54,9 +54,7 @@
 		</doclet.path>
 		<doclet.params>
 		</doclet.params>
-		<!-- For Java8 doclint: -->
-		<doclint.flags>
-		</doclint.flags>
+		<doclint.flags>-Xdoclint:none</doclint.flags>
 	</properties>
 
 	<build>
@@ -387,16 +385,6 @@
 				<module>addons/joglviz</module>
 			</modules>
 		</profile>
-		<!-- Avoid Oracle Java 8 JavaDoc problems -->
-		<profile>
-			<id>disable-java8-doclint</id>
-			<activation>
-				<jdk>[1.8,)</jdk>
-			</activation>
-			<properties>
-				<doclint.flags>-Xdoclint:none</doclint.flags>
-			</properties>
-		</profile>
 		<!-- Profile for publishing to Sonatype Maven repository. -->
 		<profile>
 			<id>publish</id>
@@ -521,6 +509,12 @@
 				<artifactId>junit</artifactId>
 				<version>[4.8,)</version>
 				<scope>test</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>net.jafama</groupId>
+				<artifactId>jafama</artifactId>
+				<version>[2.1.0,3)</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

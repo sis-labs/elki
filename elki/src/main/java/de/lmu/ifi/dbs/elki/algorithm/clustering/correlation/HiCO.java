@@ -54,7 +54,6 @@ import de.lmu.ifi.dbs.elki.database.ids.DBIDUtil;
 import de.lmu.ifi.dbs.elki.database.ids.DBIDs;
 import de.lmu.ifi.dbs.elki.database.relation.Relation;
 import de.lmu.ifi.dbs.elki.distance.distancefunction.minkowski.EuclideanDistanceFunction;
-import de.lmu.ifi.dbs.elki.index.IndexFactory;
 import de.lmu.ifi.dbs.elki.index.preprocessed.localpca.FilteredLocalPCAIndex;
 import de.lmu.ifi.dbs.elki.index.preprocessed.localpca.KNNQueryFilteredPCAIndex;
 import de.lmu.ifi.dbs.elki.logging.Logging;
@@ -74,6 +73,7 @@ import de.lmu.ifi.dbs.elki.utilities.optionhandling.parameterization.ListParamet
 import de.lmu.ifi.dbs.elki.utilities.optionhandling.parameterization.Parameterization;
 import de.lmu.ifi.dbs.elki.utilities.optionhandling.parameters.DoubleParameter;
 import de.lmu.ifi.dbs.elki.utilities.optionhandling.parameters.IntParameter;
+import net.jafama.FastMath;
 
 /**
  * Implementation of the HiCO algorithm, an algorithm for detecting hierarchies
@@ -94,7 +94,10 @@ import de.lmu.ifi.dbs.elki.utilities.optionhandling.parameters.IntParameter;
  */
 @Title("Mining Hierarchies of Correlation Clusters")
 @Description("Algorithm for detecting hierarchies of correlation clusters.")
-@Reference(authors = "E. Achtert, C. Böhm, P. Kröger, A. Zimek", title = "Mining Hierarchies of Correlation Clusters", booktitle = "Proc. Int. Conf. on Scientific and Statistical Database Management (SSDBM'06), Vienna, Austria, 2006", url = "http://dx.doi.org/10.1109/SSDBM.2006.35")
+@Reference(authors = "E. Achtert, C. Böhm, P. Kröger, A. Zimek", //
+    title = "Mining Hierarchies of Correlation Clusters", //
+    booktitle = "Proc. Int. Conf. on Scientific and Statistical Database Management (SSDBM'06), Vienna, Austria, 2006", //
+    url = "http://dx.doi.org/10.1109/SSDBM.2006.35")
 public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, CorrelationClusterOrder> {
   /**
    * The logger for this class.
@@ -114,7 +117,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
   /**
    * Factory to produce
    */
-  private IndexFactory<V, FilteredLocalPCAIndex<NumberVector>> indexfactory;
+  private KNNQueryFilteredPCAIndex.Factory<V> indexfactory;
 
   /**
    * Delta parameter
@@ -132,7 +135,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
    * @param indexfactory Index factory
    * @param mu Mu parameter
    */
-  public HiCO(IndexFactory<V, FilteredLocalPCAIndex<NumberVector>> indexfactory, int mu, double delta) {
+  public HiCO(KNNQueryFilteredPCAIndex.Factory<V> indexfactory, int mu, double delta) {
     super();
     this.mu = mu;
     this.indexfactory = indexfactory;
@@ -158,7 +161,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
     /**
      * Instantiated index.
      */
-    private FilteredLocalPCAIndex<NumberVector> index;
+    private FilteredLocalPCAIndex<V> index;
 
     /**
      * Data relation.
@@ -339,7 +342,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
       double[] v2_i = getCol(v2_strong, i);
       // check, if distance of v2_i to the space of rv1 > delta
       // (i.e., if v2_i spans up a new dimension)
-      double dist = Math.sqrt(squareSum(v2_i) - transposeTimesTimes(v2_i, m1_czech, v2_i));
+      double dist = FastMath.sqrt(squareSum(v2_i) - transposeTimesTimes(v2_i, m1_czech, v2_i));
 
       // if so, insert v2_i into v1 and adjust v1
       // and compute m1_czech new, increase lambda1
@@ -355,7 +358,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
       double[] v1_i = getCol(v1_strong, i);
       // check, if distance of v1_i to the space of rv2 > delta
       // (i.e., if v1_i spans up a new dimension)
-      double dist = Math.sqrt(squareSum(v1_i) - transposeTimesTimes(v1_i, m2_czech, v1_i));
+      double dist = FastMath.sqrt(squareSum(v1_i) - transposeTimesTimes(v1_i, m2_czech, v1_i));
 
       // if so, insert v1_i into v2 and adjust v2
       // and compute m2_czech new , increase lambda2
@@ -367,7 +370,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
 
     int correlationDistance = Math.max(lambda1, lambda2);
 
-    // TODO delta einbauen
+    // TODO re-insert again?
     // Matrix m_1_czech = pca1.dissimilarityMatrix();
     // double dist_1 = normalizedDistance(dv1, dv2, m1_czech);
     // Matrix m_2_czech = pca2.dissimilarityMatrix();
@@ -492,33 +495,32 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
     /**
      * Factory to produce
      */
-    private IndexFactory<V, FilteredLocalPCAIndex<NumberVector>> indexfactory;
+    private KNNQueryFilteredPCAIndex.Factory<V> indexfactory;
 
     @Override
     protected void makeOptions(Parameterization config) {
       super.makeOptions(config);
 
-      IntParameter muP = new IntParameter(MU_ID);
-      muP.addConstraint(CommonConstraints.GREATER_EQUAL_ONE_INT);
+      IntParameter muP = new IntParameter(MU_ID) //
+          .addConstraint(CommonConstraints.GREATER_EQUAL_ONE_INT);
       if(config.grab(muP)) {
         mu = muP.getValue();
       }
 
-      IntParameter kP = new IntParameter(K_ID);
-      kP.addConstraint(CommonConstraints.GREATER_EQUAL_ONE_INT);
-      kP.setOptional(true);
+      IntParameter kP = new IntParameter(K_ID) //
+          .addConstraint(CommonConstraints.GREATER_EQUAL_ONE_INT)//
+          .setOptional(true);
       final int k = config.grab(kP) ? kP.getValue() : mu;
 
-      DoubleParameter deltaP = new DoubleParameter(DELTA_ID, DEFAULT_DELTA);
-      deltaP.addConstraint(CommonConstraints.GREATER_EQUAL_ZERO_DOUBLE);
-      delta = DEFAULT_DELTA;
+      DoubleParameter deltaP = new DoubleParameter(DELTA_ID, DEFAULT_DELTA)//
+          .addConstraint(CommonConstraints.GREATER_EQUAL_ZERO_DOUBLE);
       if(config.grab(deltaP)) {
         delta = deltaP.doubleValue();
       }
 
-      DoubleParameter alphaP = new DoubleParameter(ALPHA_ID, DEFAULT_ALPHA);
-      alphaP.addConstraint(CommonConstraints.GREATER_THAN_ZERO_DOUBLE);
-      alphaP.addConstraint(CommonConstraints.LESS_THAN_ONE_DOUBLE);
+      DoubleParameter alphaP = new DoubleParameter(ALPHA_ID, DEFAULT_ALPHA)//
+          .addConstraint(CommonConstraints.GREATER_THAN_ZERO_DOUBLE)//
+          .addConstraint(CommonConstraints.LESS_THAN_ONE_DOUBLE);
       double alpha = DEFAULT_ALPHA;
       if(config.grab(alphaP)) {
         alpha = alphaP.doubleValue();
@@ -532,7 +534,7 @@ public class HiCO<V extends NumberVector> extends GeneralizedOPTICS<V, Correlati
 
       ChainedParameterization chain = new ChainedParameterization(params, config);
       chain.errorsTo(config);
-      final Class<? extends IndexFactory<V, FilteredLocalPCAIndex<NumberVector>>> cls = ClassGenericsUtil.uglyCrossCast(KNNQueryFilteredPCAIndex.Factory.class, IndexFactory.class);
+      final Class<KNNQueryFilteredPCAIndex.Factory<V>> cls = ClassGenericsUtil.uglyCastIntoSubclass(KNNQueryFilteredPCAIndex.Factory.class);
       indexfactory = chain.tryInstantiate(cls);
     }
 
